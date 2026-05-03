@@ -1,0 +1,22 @@
+--INSERTAR CAPAS EN POSTGRES
+
+ogr2ogr -f "PostgreSQL" PG:"dbname=proyectofinal_webmapping user=postgres password=root" "sistema_de_transmision_ags_GeoJson_82F1A846B74A412C9E4D5271612AA3E7.geojson" -nln sistema_de_transmision_energia -t_srs EPSG:3116 -lco GEOMETRY_NAME=geom
+
+--ASIGNAR PROYECCION, NO TRANSFORMARLA--
+ogr2ogr -f "PostgreSQL" PG:"dbname=proyectofinal_webmapping user=postgres password=root" "Servicio de IGAC - Departamentos.geojson" -nln departamentos -a_srs EPSG:3116 -lco GEOMETRY_NAME=geom
+
+--CREAR VISTAS
+CREATE OR REPLACE VIEW vista_subestaciones_activas AS
+SELECT id, nombre, voltaje, geom
+FROM subestaciones_energia
+WHERE estado = 'OPERATIVA';
+
+SELECT ST_SRID(geom), COUNT(*)
+FROM municipios
+GROUP BY ST_SRID(geom);
+
+
+--INSTALAR EN EL BACKEND
+npm init -y
+npm install express cors pg
+

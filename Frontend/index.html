@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Visor Web Mapping - Proyecto Final</title>
+    <!-- CSS de Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 100vh; width: 100%; } /* El mapa ocupa toda la pantalla */
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <!-- JS de Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 1. Inicializar el mapa (centrado en Colombia/Caquetá)
+        const map = L.map('map').setView([1.61438, -75.60623], 8);
+
+        // 2. Capa Base de OpenStreetMap
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // 3. Conexión a GeoServer (Capa WMS) - Asegúrate de tener GeoServer corriendo
+        // Reemplaza 'tu_espacio:limites_municipales' con tu capa real
+        const wmsLayer = L.tileLayer.wms('http://localhost:8080/geoserver/wms', {
+            layers: 'tu_espacio:limites_municipales',
+            format: 'image/png',
+            transparent: true,
+            attribution: "Datos IGAC/UPME"
+        }).addTo(map);
+
+        // 4. Consumir la API Node.js para la capa GeoJSON dinámica
+        async function cargarGeoJSON() {
+            try {
+                const response = await fetch('http://localhost:3000/api/subestaciones');
+                const data = await response.json();
+
+                // Añadir el GeoJSON al mapa con un popup
+                L.geoJSON(data, {
+                    onEachFeature: function (feature, layer) {
+                        if (feature.properties && feature.properties.nombre) {
+                            layer.bindPopup(`<b>Subestación:</b> ${feature.properties.nombre}<br>
+                                             <b>Voltaje:</b> ${feature.properties.voltaje} kV`);
+                        }
+                    }
+                }).addTo(map);
+            } catch (error) {
+                console.error('Error cargando la capa GeoJSON:', error);
+            }
+        }
+
+        // Ejecutar la carga de datos espaciales
+        cargarGeoJSON();
+    </script>
+</body>
+</html>
