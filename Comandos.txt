@@ -5,18 +5,55 @@ ogr2ogr -f "PostgreSQL" PG:"dbname=proyectofinal_webmapping user=postgres passwo
 --ASIGNAR PROYECCION, NO TRANSFORMARLA--
 ogr2ogr -f "PostgreSQL" PG:"dbname=proyectofinal_webmapping user=postgres password=root" "Servicio de IGAC - Departamentos.geojson" -nln departamentos -a_srs EPSG:3116 -lco GEOMETRY_NAME=geom
 
+--AÑADIR MUNICIPIOS
+C:\Users\Jaime Daniel\Documents\__UndécimoSemestre\Línea B\ProyectoFinal\Capas>ogr2ogr -f "PostgreSQL" PG:"dbname=proyectofinal_webmapping user=postgres password=root" "Servicio de IGAC - Municipios.geojson" -nln municipios -s_srs EPSG:4326 -t_srs EPSG:3116 -lco GEOMETRY_NAME=geom
+
 --CREAR VISTAS
 CREATE OR REPLACE VIEW vista_subestaciones_activas AS
 SELECT id, nombre, voltaje, geom
 FROM subestaciones_energia
 WHERE estado = 'OPERATIVA';
 
+CREATE OR REPLACE VIEW vista_subestaciones_medellin AS
+SELECT 
+    s.ogc_fid, 
+    s.nombre_subestacion, 
+    s.tension, 
+    s.vigencia, 
+    s.geom
+FROM subestaciones_energia s
+JOIN municipios m ON ST_Intersects(s.geom, m.geom)
+WHERE UPPER(m.mpnombre) = 'MEDELLÍN';
+
 SELECT ST_SRID(geom), COUNT(*)
 FROM municipios
 GROUP BY ST_SRID(geom);
 
 
+CREATE OR REPLACE VIEW vista_lineas_medellin AS
+SELECT 
+    l.ogc_fid, 
+    l.nombre_circuito, 
+    l.tension, 
+    l.geom
+FROM sistema_de_transmision_energia l
+JOIN municipios m ON ST_Intersects(l.geom, m.geom)
+WHERE UPPER(m.mpnombre) = 'MEDELLÍN';
+
+
 --INSTALAR EN EL BACKEND
 npm init -y
 npm install express cors pg
+
+--CREAR TABLA DE REPORTES
+CREATE TABLE REPORTE (
+    id SERIAL PRIMARY KEY,
+    usuario VARCHAR(100) NOT NULL,
+    id_equipo VARCHAR(50),
+    nombre_equipo VARCHAR(150),
+    fecha_consulta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    geom GEOMETRY(Point, 3116) -- Guardamos en 3116 para mantener coherencia
+);
+
+
 

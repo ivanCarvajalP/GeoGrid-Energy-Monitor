@@ -2,60 +2,94 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Visor Web Mapping - Proyecto Final</title>
-    <!-- CSS de Leaflet -->
+    <title>Visor de Infraestructura Energética - Medellín</title>
+    
+    <!-- Leaflet y sus plugins -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body { margin: 0; padding: 0; }
-        #map { height: 100vh; width: 100%; } /* El mapa ocupa toda la pantalla */
-    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-minimap/3.6.1/Control.MiniMap.min.css" />
+
+    <!-- Estilos propios -->
+    <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+    <div id="dashboard">
+        <!-- Panel Lateral (Modo Oscuro) -->
+        <aside id="sidebar">
+            <header>
+                <h2>Visor de Redes Eléctricas</h2>
+                <p>Medellín</p>
+            </header>
 
-    <div id="map"></div>
+            <div class="user-control">
+                <input type="text" id="nombreOperador" placeholder="Nombre del Operador" value="Operador_Turno1">
+            </div>
 
-    <!-- JS de Leaflet -->
+            <!-- Tarjetas de Resumen -->
+            <div class="summary-cards">
+                <div class="card">
+                    <span class="card-title">Subestaciones</span>
+                    <span class="card-value" id="count-subestaciones">0</span>
+                </div>
+                <div class="card">
+                    <span class="card-title">Líneas (Circuitos)</span>
+                    <span class="card-value" id="count-lineas">0</span>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- Buscador -->
+            <div class="search-control">
+                <label for="buscadorSubestacion">Buscar Subestación:</label>
+                <input type="text" id="buscadorSubestacion" list="listaSubestaciones" placeholder="Escribe el nombre...">
+                <datalist id="listaSubestaciones"></datalist>
+            </div>
+
+            <hr>
+
+            <!-- Filtros por Tensión -->
+            <div class="filters-control">
+                <h3>Filtrar por Tensión (kV)</h3>
+                <div id="filter-pills-container" class="pills-container">
+                    <!-- Leaflet rellenará esto dinámicamente -->
+                </div>
+            </div>
+
+            <div class="spacer"></div>
+
+            <!-- Leyenda integrada en el Sidebar -->
+            <div class="sidebar-legend">
+                <h4>Convenciones</h4>
+                <div class="legend-item"><span class="legend-color" style="background:#007bff; border: 2px solid white; box-shadow: 0 0 2px black;"></span> Subestación</div>
+                
+                <div class="legend-item"><span class="legend-color" style="background:#800080; width: 25px; height: 5px; border-radius: 0; margin-right: 5px; border: 1px solid white; box-shadow: 0 0 1px black;"></span> Línea &ge; 500 kV</div>
+                <div class="legend-item"><span class="legend-color" style="background:#CC3300; width: 25px; height: 4px; border-radius: 0; margin-right: 5px; border: 1px solid white; box-shadow: 0 0 1px black;"></span> Línea &ge; 230 kV</div>
+                <div class="legend-item"><span class="legend-color" style="background:#0000CD; width: 25px; height: 3px; border-radius: 0; margin-right: 5px; border: 1px solid white; box-shadow: 0 0 1px black;"></span> Línea &ge; 110 kV</div>
+                <div class="legend-item"><span class="legend-color" style="background:#333333; width: 25px; height: 2px; border-radius: 0; margin-right: 5px; border: 1px solid white; box-shadow: 0 0 1px black;"></span> Línea &lt; 110 kV</div>
+                <div class="legend-item"><span class="legend-color" style="background:transparent; border-top: 2px dashed #333333; width: 25px; height: 0; border-radius: 0; margin-right: 5px; margin-top: 5px;"></span> Fuera de Servicio / Proy</div>
+
+                <div class="legend-item" style="margin-top: 10px;"><span class="legend-color" style="background:red; opacity:0.5; border: 2px solid darkred;"></span> Buffer Afectación</div>
+                <div class="legend-item"><span class="legend-color" style="background:#e68a00; width: 25px; height: 5px; border-radius: 0; margin-right: 5px;"></span> Ruta (Trayecto)</div>
+            </div>
+        </aside>
+
+        <!-- Área del Mapa -->
+        <main id="map-container">
+            <div id="map"></div>
+        </main>
+    </div>
+
+    <!-- Scripts de Leaflet y Turf -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // 1. Inicializar el mapa (centrado en Colombia/Caquetá)
-        const map = L.map('map').setView([1.61438, -75.60623], 8);
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-minimap/3.6.1/Control.MiniMap.min.js"></script>
 
-        // 2. Capa Base de OpenStreetMap
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        // 3. Conexión a GeoServer (Capa WMS) - Asegúrate de tener GeoServer corriendo
-        // Reemplaza 'tu_espacio:limites_municipales' con tu capa real
-        const wmsLayer = L.tileLayer.wms('http://localhost:8080/geoserver/wms', {
-            layers: 'tu_espacio:limites_municipales',
-            format: 'image/png',
-            transparent: true,
-            attribution: "Datos IGAC/UPME"
-        }).addTo(map);
-
-        // 4. Consumir la API Node.js para la capa GeoJSON dinámica
-        async function cargarGeoJSON() {
-            try {
-                const response = await fetch('http://localhost:3000/api/subestaciones');
-                const data = await response.json();
-
-                // Añadir el GeoJSON al mapa con un popup
-                L.geoJSON(data, {
-                    onEachFeature: function (feature, layer) {
-                        if (feature.properties && feature.properties.nombre) {
-                            layer.bindPopup(`<b>Subestación:</b> ${feature.properties.nombre}<br>
-                                             <b>Voltaje:</b> ${feature.properties.voltaje} kV`);
-                        }
-                    }
-                }).addTo(map);
-            } catch (error) {
-                console.error('Error cargando la capa GeoJSON:', error);
-            }
-        }
-
-        // Ejecutar la carga de datos espaciales
-        cargarGeoJSON();
-    </script>
+    <!-- Lógica de la aplicación -->
+    <script src="js/app.js"></script>
 </body>
 </html>
